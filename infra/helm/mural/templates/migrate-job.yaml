@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mural-migrate
+  labels:
+    {{- include "mural.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: mural-migrate
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-db
+          image: "{{ .Values.image.postgres.repository }}:{{ .Values.image.postgres.tag }}"
+          command: ["sh", "-c", "until pg_isready -h mural-postgres -U \"$POSTGRES_USER\"; do echo waiting for postgres; sleep 2; done"]
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mural-postgres
+                  key: POSTGRES_USER
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.postgres.repository }}:{{ .Values.image.postgres.tag }}"
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              for f in $(ls /migrations/*.sql | sort); do
+                echo "applying $f"
+                psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+              done
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mural-postgres
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+      volumes:
+        - name: migrations
+          configMap:
+            name: mural-migrations

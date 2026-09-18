@@ -1,0 +1,63 @@
+image:
+  api:
+    repository: mural-api
+    tag: local
+    pullPolicy: IfNotPresent
+  web:
+    repository: mural-web
+    tag: local
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+
+api:
+  replicaCount: 1
+  port: 8080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+web:
+  replicaCount: 1
+  port: 8080
+  resources:
+    requests:
+      cpu: 25m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+postgres:
+  port: 5432
+  user: mural
+  password: mural
+  database: mural
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+migrate:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+ingress:
+  enabled: true
+  className: traefik
+  host: mural.localtest.me
