@@ -1,0 +1,60 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mural
+      POSTGRES_PASSWORD: mural
+      POSTGRES_DB: mural
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mural -d mural"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app/api/migrations:/migrations:ro
+    environment:
+      PGPASSWORD: mural
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        for f in /migrations/*.sql; do
+          echo "applying $$f"
+          psql -h db -U mural -d mural -v ON_ERROR_STOP=1 -f "$$f"
+        done
+
+  api:
+    image: golang:1.23-alpine
+    working_dir: /app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./app/api:/app
+    environment:
+      DATABASE_URL: postgres://mural:mural@db:5432/mural?sslmode=disable
+      PORT: "8080"
+    command: ["go", "run", "."]
+
+  web:
+    image: nginx:1.27-alpine
+    depends_on:
+      - api
+    volumes:
+      - ./app/web:/usr/share/nginx/html:ro
+      - ./app/web/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      API_UPSTREAM: api:8080
+    ports:
+      - "8080:8080"
+
+volumes:
+  db_data:
