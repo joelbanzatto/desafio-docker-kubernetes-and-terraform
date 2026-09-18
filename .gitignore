@@ -6,7 +6,7 @@
 **/.terraform/*
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
+infra/terraform/*-config
 solucao/terraform/.kube/
 
 # Node / misc
